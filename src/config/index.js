@@ -35,6 +35,13 @@ export {
 	generateClashRuleSets
 } from './ruleGenerators.js';
 
+// Routing Profiles
+export {
+	ROUTING_PROFILES,
+	getRoutingProfile,
+	mergeRoutingProfileCustomRules
+} from './routingProfiles.js';
+
 // Subconverter Config
 export { generateSubconverterConfig } from './subconverterConfig.js';
 

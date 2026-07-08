@@ -52,8 +52,7 @@ export function generateRules(selectedRules = [], customRules = []) {
 		}
 	});
 
-	customRules.reverse();
-	customRules.forEach((rule) => {
+	[...customRules].reverse().forEach((rule) => {
 		rules.unshift({
 			site_rules: toStringArray(rule.site),
 			ip_rules: toStringArray(rule.ip),

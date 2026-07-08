@@ -47,6 +47,49 @@ function getClashUdpValue(proxy, defaultEnabled = true) {
     return defaultEnabled;
 }
 
+function toStringList(value) {
+    if (Array.isArray(value)) {
+        return value.filter(item => typeof item === 'string' && item.trim()).map(item => item.trim());
+    }
+    if (typeof value === 'string' && value.trim()) {
+        return [value.trim()];
+    }
+    return [];
+}
+
+function compilePattern(pattern) {
+    if (typeof pattern !== 'string' || !pattern.trim()) return null;
+    const trimmed = pattern.trim();
+    const regexMatch = trimmed.match(/^\/(.+)\/([a-z]*)$/i);
+    if (regexMatch) {
+        try {
+            return new RegExp(regexMatch[1], regexMatch[2]);
+        } catch (_) {
+            return null;
+        }
+    }
+    return new RegExp(trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+}
+
+function providerMatchesPattern(provider, pattern) {
+    const regex = compilePattern(pattern);
+    if (!regex) return false;
+    return regex.test(`${provider?.name || ''}\n${provider?.url || ''}`);
+}
+
+function sortProvidersByPriority(providers, priorityPatterns = []) {
+    const compiled = toStringList(priorityPatterns).map(compilePattern).filter(Boolean);
+    if (compiled.length === 0) return providers;
+    return [...providers].sort((a, b) => {
+        const rank = provider => {
+            const text = `${provider?.name || ''}\n${provider?.url || ''}`;
+            const index = compiled.findIndex(regex => regex.test(text));
+            return index === -1 ? compiled.length : index;
+        };
+        return rank(a) - rank(b);
+    });
+}
+
 export class ClashConfigBuilder extends BaseConfigBuilder {
     constructor(inputString, selectedRules, customRules, baseConfig, lang, userAgent, groupByCountry = false, enableClashUI = false, externalController, externalUiDownloadUrl, includeAutoSelect = true) {
         if (!baseConfig) {
@@ -110,14 +153,45 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
             : [];
     }
 
+    getExistingProviderDescriptors() {
+        const providers = this.config?.['proxy-providers'];
+        if (!providers || typeof providers !== 'object') {
+            return [];
+        }
+        return Object.entries(providers).map(([name, provider]) => ({
+            name,
+            url: typeof provider?.url === 'string' ? provider.url : ''
+        }));
+    }
+
+    getAllProviderDescriptors() {
+        const existingProviders = this.getExistingProviderDescriptors();
+        const existingNames = existingProviders.map(provider => provider.name);
+        const autoProviders = this.getAutoProviderDescriptors(existingNames);
+        return [...existingProviders, ...autoProviders];
+    }
+
     /**
      * Get all provider names (user-defined + auto-generated)
      * @returns {string[]} - Array of provider names
      */
     getAllProviderNames() {
-        const existingProviders = this.getExistingProviderNames();
-        const autoProviders = this.getProviderNames();
-        return [...new Set([...existingProviders, ...autoProviders])];
+        return [...new Set(this.getAllProviderDescriptors().map(provider => provider.name))];
+    }
+
+    getProviderNamesForGroup(group = {}) {
+        const includePatterns = toStringList(group.providerInclude || group.includeProvider || group.provider?.include);
+        const excludePatterns = toStringList(group.providerExclude || group.excludeProvider || group.provider?.exclude);
+        const priorityPatterns = toStringList(group.providerPriority || group.provider?.priority);
+        const providers = this.getAllProviderDescriptors();
+
+        const filtered = providers.filter(provider => {
+            const included = includePatterns.length === 0 || includePatterns.some(pattern => providerMatchesPattern(provider, pattern));
+            const excluded = excludePatterns.some(pattern => providerMatchesPattern(provider, pattern));
+            return included && !excluded;
+        });
+
+        return sortProvidersByPriority(filtered, priorityPatterns).map(provider => provider.name);
     }
 
     getProxies() {
@@ -443,6 +517,11 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
             this.customRules.forEach(rule => {
                 const name = this.t(`outboundNames.${rule.name}`);
                 if (!this.hasProxyGroup(name)) {
+                    if (rule?.group && typeof rule.group === 'object') {
+                        this.config['proxy-groups'].push(this.createCustomPolicyGroup(name, rule.group, proxyList));
+                        return;
+                    }
+
                     const proxies = buildCustomRuleMembers({
                         proxyList,
                         translator: this.t,
@@ -463,6 +542,48 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                 }
             });
         }
+    }
+
+    createCustomPolicyGroup(name, groupOptions = {}, proxyList = []) {
+        const group = {
+            type: groupOptions.type || 'select',
+            name
+        };
+
+        const explicitProxies = toStringList(groupOptions.proxies);
+        const shouldAttachProviders = groupOptions.useProvider || groupOptions.providerInclude || groupOptions.providerExclude || groupOptions.provider;
+        const providerNames = Array.isArray(groupOptions.use)
+            ? groupOptions.use.filter(name => typeof name === 'string' && name.trim())
+            : (shouldAttachProviders ? this.getProviderNamesForGroup(groupOptions) : []);
+
+        if (group.type === 'url-test' || group.type === 'fallback') {
+            group.proxies = explicitProxies;
+            if (providerNames.length > 0) {
+                group.use = providerNames;
+            } else if (group.proxies.length === 0) {
+                group.proxies = deepCopy(uniqueNames(proxyList));
+            }
+        } else {
+            group.proxies = explicitProxies.length > 0
+                ? explicitProxies
+                : buildCustomRuleMembers({
+                    proxyList,
+                    translator: this.t,
+                    manualGroupName: this.manualGroupName,
+                    includeAutoSelect: this.shouldIncludeAutoSelectGroup(proxyList)
+                });
+            if (providerNames.length > 0) {
+                group.use = providerNames;
+            }
+        }
+
+        if (groupOptions.url) group.url = groupOptions.url;
+        if (typeof groupOptions.interval === 'number') group.interval = groupOptions.interval;
+        if (typeof groupOptions.tolerance === 'number') group.tolerance = groupOptions.tolerance;
+        if (typeof groupOptions.lazy === 'boolean') group.lazy = groupOptions.lazy;
+        if (groupOptions.filter) group.filter = groupOptions.filter;
+
+        return group;
     }
 
     addFallBackGroup(proxyList) {

@@ -16,7 +16,7 @@ import { ShortLinkService } from '../services/shortLinkService.js';
 import { ConfigStorageService } from '../services/configStorageService.js';
 import { ServiceError, MissingDependencyError } from '../services/errors.js';
 import { normalizeRuntime } from '../runtime/runtimeConfig.js';
-import { PREDEFINED_RULE_SETS, SING_BOX_CONFIG, SING_BOX_CONFIG_V1_11, generateSubconverterConfig } from '../config/index.js';
+import { PREDEFINED_RULE_SETS, SING_BOX_CONFIG, SING_BOX_CONFIG_V1_11, generateSubconverterConfig, mergeRoutingProfileCustomRules } from '../config/index.js';
 
 const DEFAULT_USER_AGENT = 'curl/7.74.0';
 
@@ -76,7 +76,7 @@ export function createApp(bindings = {}) {
             }
 
             const selectedRules = parseSelectedRules(c.req.query('selectedRules'));
-            const customRules = parseJsonArray(c.req.query('customRules'));
+            const customRules = parseRequestCustomRules(c);
             const ua = c.req.query('ua') || getRequestHeader(c.req, 'User-Agent') || DEFAULT_USER_AGENT;
             const groupByCountry = parseBooleanFlag(c.req.query('group_by_country'));
             const includeAutoSelect = c.req.query('include_auto_select') !== 'false';
@@ -132,7 +132,7 @@ export function createApp(bindings = {}) {
             }
 
             const selectedRules = parseSelectedRules(c.req.query('selectedRules'));
-            const customRules = parseJsonArray(c.req.query('customRules'));
+            const customRules = parseRequestCustomRules(c);
             const ua = c.req.query('ua') || getRequestHeader(c.req, 'User-Agent') || DEFAULT_USER_AGENT;
             const groupByCountry = parseBooleanFlag(c.req.query('group_by_country'));
             const includeAutoSelect = c.req.query('include_auto_select') !== 'false';
@@ -181,7 +181,7 @@ export function createApp(bindings = {}) {
             }
 
             const selectedRules = parseSelectedRules(c.req.query('selectedRules'));
-            const customRules = parseJsonArray(c.req.query('customRules'));
+            const customRules = parseRequestCustomRules(c);
             const ua = c.req.query('ua') || getRequestHeader(c.req, 'User-Agent') || DEFAULT_USER_AGENT;
             const groupByCountry = parseBooleanFlag(c.req.query('group_by_country'));
             const includeAutoSelect = c.req.query('include_auto_select') !== 'false';
@@ -241,7 +241,7 @@ export function createApp(bindings = {}) {
 
             const includeAutoSelect = c.req.query('include_auto_select') !== 'false';
             const groupByCountry = parseBooleanFlag(c.req.query('group_by_country'));
-            const customRules = parseJsonArray(c.req.query('customRules'));
+            const customRules = parseRequestCustomRules(c);
             const lang = c.get('lang');
 
             const config = generateSubconverterConfig({
@@ -439,6 +439,12 @@ function parseJsonArray(raw) {
     } catch {
         return [];
     }
+}
+
+function parseRequestCustomRules(c) {
+    const customRules = parseJsonArray(c.req.query('customRules'));
+    const routingProfile = c.req.query('routingProfile') || c.req.query('routing_profile');
+    return mergeRoutingProfileCustomRules(customRules, routingProfile);
 }
 
 function parseBooleanFlag(value) {
