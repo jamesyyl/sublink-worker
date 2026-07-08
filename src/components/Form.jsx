@@ -10,6 +10,7 @@ const LINK_FIELDS = [
   { key: 'xray', labelKey: 'xrayLink' },
   { key: 'singbox', labelKey: 'singboxLink' },
   { key: 'clash', labelKey: 'clashLink' },
+  { key: 'stash', labelKey: 'stashLink' },
   { key: 'surge', labelKey: 'surgeLink' }
 ];
 

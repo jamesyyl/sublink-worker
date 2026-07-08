@@ -91,7 +91,7 @@ function sortProvidersByPriority(providers, priorityPatterns = []) {
 }
 
 export class ClashConfigBuilder extends BaseConfigBuilder {
-    constructor(inputString, selectedRules, customRules, baseConfig, lang, userAgent, groupByCountry = false, enableClashUI = false, externalController, externalUiDownloadUrl, includeAutoSelect = true, forceProxyProviders = false) {
+    constructor(inputString, selectedRules, customRules, baseConfig, lang, userAgent, groupByCountry = false, enableClashUI = false, externalController, externalUiDownloadUrl, includeAutoSelect = true, forceProxyProviders = false, inlineProxyProviders = false) {
         if (!baseConfig) {
             baseConfig = CLASH_CONFIG;
         }
@@ -104,6 +104,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
         this.externalController = externalController;
         this.externalUiDownloadUrl = externalUiDownloadUrl;
         this.forceProxyProviders = forceProxyProviders;
+        this.inlineProxyProviders = inlineProxyProviders;
     }
 
     /**
@@ -112,15 +113,18 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
      * @returns {boolean} - True if format is Clash YAML
      */
     isCompatibleProviderFormat(format) {
+        if (this.inlineProxyProviders) {
+            return false;
+        }
         return format === 'clash';
     }
 
     shouldUseHttpUrlAsProviderFallback(_url) {
-        return true;
+        return !this.inlineProxyProviders;
     }
 
     shouldAlwaysUseHttpUrlAsProvider(_url) {
-        return this.forceProxyProviders;
+        return this.forceProxyProviders && !this.inlineProxyProviders;
     }
 
     /**

@@ -69,12 +69,18 @@ describe('formLogic toString fix', () => {
 
       const singboxUrl = new URL(data.generatedLinks.singbox);
       const clashUrl = new URL(data.generatedLinks.clash);
+      const stashUrl = new URL(data.generatedLinks.stash);
       const surgeUrl = new URL(data.generatedLinks.surge);
 
       expect(singboxUrl.searchParams.get('routingProfile')).toBe('jameslab');
       expect(surgeUrl.searchParams.get('routingProfile')).toBe('jameslab');
       expect(clashUrl.searchParams.get('routingProfile')).toBe('jameslab');
       expect(clashUrl.searchParams.get('forceProxyProviders')).toBe('true');
+      expect(stashUrl.pathname).toBe('/clash');
+      expect(stashUrl.searchParams.get('routingProfile')).toBe('jameslab');
+      expect(stashUrl.searchParams.get('inlineProxies')).toBe('true');
+      expect(stashUrl.searchParams.get('ua')).toBe('Stash/2.6.0');
+      expect(stashUrl.searchParams.get('forceProxyProviders')).toBeNull();
       expect(singboxUrl.searchParams.get('forceProxyProviders')).toBeNull();
     } finally {
       globalThis.document = originalDocument;

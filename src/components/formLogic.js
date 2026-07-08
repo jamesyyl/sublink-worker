@@ -404,16 +404,23 @@ export const formLogicFn = (t) => {
                     if (this.enableJameslabRouting) {
                         clashParams.append('forceProxyProviders', 'true');
                     }
+                    const stashParams = new URLSearchParams(queryString);
+                    stashParams.append('inlineProxies', 'true');
+                    if (!this.customUA) {
+                        stashParams.set('ua', 'Stash/2.6.0');
+                    }
 
                     this.generatedLinks = {
                         xray: origin + '/xray?' + queryString,
                         singbox: origin + '/singbox?' + queryString,
                         clash: origin + '/clash?' + clashParams.toString(),
+                        stash: origin + '/clash?' + stashParams.toString(),
                         surge: origin + '/surge?' + queryString
                     };
 
                     // Scroll to results
                     setTimeout(() => {
+                        if (typeof document === 'undefined') return;
                         const resultsDiv = document.querySelector('.mt-12');
                         if (resultsDiv) {
                             resultsDiv.scrollIntoView({ behavior: 'smooth' });
@@ -477,6 +484,7 @@ export const formLogicFn = (t) => {
                                 xray: 'x',
                                 singbox: 'b',
                                 clash: 'c',
+                                stash: 'c',
                                 surge: 's'
                             };
 

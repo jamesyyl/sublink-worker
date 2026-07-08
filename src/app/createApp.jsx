@@ -137,6 +137,8 @@ export function createApp(bindings = {}) {
             const groupByCountry = parseBooleanFlag(c.req.query('group_by_country'));
             const includeAutoSelect = c.req.query('include_auto_select') !== 'false';
             const forceProxyProviders = parseBooleanFlag(c.req.query('forceProxyProviders') || c.req.query('force_proxy_providers'));
+            const requestUserAgent = getRequestHeader(c.req, 'User-Agent');
+            const inlineProxyProviders = parseBooleanFlag(c.req.query('inlineProxies') || c.req.query('inline_proxies') || c.req.query('inlineProxyProviders') || c.req.query('inline_proxy_providers')) || isStashUserAgent(requestUserAgent);
             const enableClashUI = parseBooleanFlag(c.req.query('enable_clash_ui'));
             const externalController = c.req.query('external_controller');
             const externalUiDownloadUrl = c.req.query('external_ui_download_url');
@@ -161,7 +163,8 @@ export function createApp(bindings = {}) {
                 externalController,
                 externalUiDownloadUrl,
                 includeAutoSelect,
-                forceProxyProviders
+                forceProxyProviders,
+                inlineProxyProviders
             );
             await builder.build();
             const userinfo = builder.getSubscriptionUserinfo();
@@ -451,6 +454,10 @@ function parseRequestCustomRules(c) {
 
 function parseBooleanFlag(value) {
     return value === 'true' || value === true;
+}
+
+function isStashUserAgent(userAgent) {
+    return typeof userAgent === 'string' && /\bstash\b/i.test(userAgent);
 }
 
 function parseSemverLike(value) {

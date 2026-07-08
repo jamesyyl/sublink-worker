@@ -211,6 +211,39 @@ describe('Auto Proxy Providers Detection', () => {
             expect(config['proxy-providers'][providerNames[0]].url)
                 .toBe('https://force-provider.example.com/sub');
         });
+
+        it('should inline Clash HTTP subscriptions when proxy providers are disabled for compatibility', async () => {
+            fetchSubscriptionWithFormat.mockResolvedValue({
+                content: mockClashYaml,
+                format: 'clash',
+                url: 'https://stash-compatible.example.com/clash-sub'
+            });
+
+            const builder = new ClashConfigBuilder(
+                'https://stash-compatible.example.com/clash-sub',
+                [],
+                [],
+                null,
+                'zh-CN',
+                'Stash/2.6.0',
+                false,
+                false,
+                null,
+                null,
+                true,
+                false,
+                true
+            );
+            const yamlText = await builder.build();
+            const config = yaml.load(yamlText);
+
+            expect(config['proxy-providers']).toBeUndefined();
+            expect(config.proxies.map(proxy => proxy.name)).toEqual(['HK-Node', 'JP-Node']);
+            const nodeSelect = config['proxy-groups'].find(g => g.name === '🚀 节点选择');
+            expect(nodeSelect.proxies).toContain('HK-Node');
+            expect(nodeSelect.proxies).toContain('JP-Node');
+            expect(nodeSelect.use || []).toEqual([]);
+        });
     });
 
     describe('Sing-Box Builder', () => {
