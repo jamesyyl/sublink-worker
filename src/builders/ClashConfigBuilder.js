@@ -1,5 +1,5 @@
 import yaml from 'js-yaml';
-import { CLASH_CONFIG, generateRules, generateClashRuleSets, getOutbounds, PREDEFINED_RULE_SETS, DIRECT_DEFAULT_RULES } from '../config/index.js';
+import { CLASH_CONFIG, generateRules, generateClashRuleSets, getOutbounds, PREDEFINED_RULE_SETS, DIRECT_DEFAULT_RULES, URL_TEST_RULE_URLS } from '../config/index.js';
 import { BaseConfigBuilder } from './BaseConfigBuilder.js';
 import { deepCopy, groupProxiesByCountry } from '../utils.js';
 import { addProxyWithDedup } from './helpers/proxyHelpers.js';
@@ -400,6 +400,24 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
             if (outbound !== this.t('outboundNames.Node Select')) {
                 const name = this.t(`outboundNames.${outbound}`);
                 if (!this.hasProxyGroup(name)) {
+                    const providerNames = this.getAllProviderNames();
+                    const urlTestUrl = URL_TEST_RULE_URLS[outbound];
+                    if (urlTestUrl && this.hasSelectableSources(proxyList)) {
+                        const group = {
+                            type: "url-test",
+                            name,
+                            proxies: deepCopy(uniqueNames(proxyList)),
+                            url: urlTestUrl,
+                            interval: 300,
+                            lazy: false
+                        };
+                        if (providerNames.length > 0) {
+                            group.use = providerNames;
+                        }
+                        this.config['proxy-groups'].push(group);
+                        return;
+                    }
+
                     let proxies = this.buildSelectGroupMembers(proxyList);
                     // For rules that should default to DIRECT, move DIRECT to the front
                     if (DIRECT_DEFAULT_RULES.has(outbound)) {
@@ -411,7 +429,6 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                         proxies
                     };
                     // Add 'use' field if we have proxy-providers
-                    const providerNames = this.getAllProviderNames();
                     if (providerNames.length > 0) {
                         group.use = providerNames;
                     }

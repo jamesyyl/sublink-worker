@@ -80,6 +80,35 @@ describe('Auto Proxy Providers Detection', () => {
             expect(nodeSelect.use).toContain(providerName);
         });
 
+        it('should route Cloudflare Dashboard through a dedicated url-test group', async () => {
+            fetchSubscriptionWithFormat.mockResolvedValue({
+                content: mockClashYaml,
+                format: 'clash',
+                url: 'https://example.com/clash-sub?token=xxx'
+            });
+
+            const builder = new ClashConfigBuilder(
+                'https://example.com/clash-sub?token=xxx',
+                'balanced',
+                [],
+                null,
+                'zh-CN',
+                'test-agent'
+            );
+            const yamlText = await builder.build();
+            const config = yaml.load(yamlText);
+            const providerName = Object.keys(config['proxy-providers'])[0];
+
+            const dashboardGroup = config['proxy-groups'].find(g => g.name === '☁️ Cloudflare 面板');
+            expect(dashboardGroup).toBeDefined();
+            expect(dashboardGroup.type).toBe('url-test');
+            expect(dashboardGroup.url).toBe('https://dash.cloudflare.com/');
+            expect(dashboardGroup.use).toContain(providerName);
+            expect(config.rules).toContain('DOMAIN-SUFFIX,dash.cloudflare.com,☁️ Cloudflare 面板');
+            expect(config.rules.indexOf('DOMAIN-SUFFIX,dash.cloudflare.com,☁️ Cloudflare 面板'))
+                .toBeLessThan(config.rules.findIndex(rule => rule.includes('geolocation-!cn')));
+        });
+
         it('should parse and convert Sing-Box URL (incompatible format)', async () => {
             // Mock fetchSubscriptionWithFormat to return Sing-Box format
             fetchSubscriptionWithFormat.mockResolvedValue({

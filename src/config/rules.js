@@ -92,6 +92,12 @@ export const UNIFIED_RULES = [
 		ip_rules: []
 	},
 	{
+		name: 'Cloudflare Dashboard',
+		site_rules: [],
+		ip_rules: [],
+		domain_suffix: ['dash.cloudflare.com']
+	},
+	{
 		name: 'Non-China',
 		site_rules: ['geolocation-!cn'],
 		ip_rules: []
@@ -101,10 +107,13 @@ export const UNIFIED_RULES = [
 // Rule names that should default to DIRECT instead of Node Select
 export const DIRECT_DEFAULT_RULES = new Set(['Private', 'Location:CN']);
 export const REJECT_ACTION_RULES = new Set(['Ad Block']);
+export const URL_TEST_RULE_URLS = {
+	'Cloudflare Dashboard': 'https://dash.cloudflare.com/'
+};
 
 export const PREDEFINED_RULE_SETS = {
 	minimal: ['Location:CN', 'Private', 'Non-China'],
-	balanced: ['Location:CN', 'Private', 'Non-China', 'Github', 'Google', 'Youtube', 'AI Services', 'Telegram'],
+	balanced: ['Location:CN', 'Private', 'Non-China', 'Github', 'Google', 'Youtube', 'AI Services', 'Telegram', 'Cloudflare Dashboard'],
 	comprehensive: UNIFIED_RULES.map(rule => rule.name)
 };
 
