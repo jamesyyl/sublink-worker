@@ -136,6 +136,81 @@ describe('Auto Proxy Providers Detection', () => {
             // Should have parsed proxies from sing-box config
             expect(config.proxies.length).toBeGreaterThan(0);
         });
+
+        it('should keep failed HTTP subscriptions as Clash proxy-providers', async () => {
+            fetchSubscriptionWithFormat.mockResolvedValue(null);
+
+            const builder = new ClashConfigBuilder(
+                'https://temporarily-unreachable.example.com/clash-sub',
+                [],
+                [],
+                null,
+                'zh-CN',
+                'test-agent'
+            );
+            const yamlText = await builder.build();
+            const config = yaml.load(yamlText);
+
+            const providerNames = Object.keys(config['proxy-providers'] || {});
+            expect(providerNames).toHaveLength(1);
+            expect(config['proxy-providers'][providerNames[0]].url)
+                .toBe('https://temporarily-unreachable.example.com/clash-sub');
+        });
+
+        it('should keep unparsed HTTP subscriptions as Clash proxy-providers', async () => {
+            fetchSubscriptionWithFormat.mockResolvedValue({
+                content: 'temporary upstream response',
+                format: 'unknown',
+                url: 'https://temporarily-unparsed.example.com/clash-sub'
+            });
+
+            const builder = new ClashConfigBuilder(
+                'https://temporarily-unparsed.example.com/clash-sub',
+                [],
+                [],
+                null,
+                'zh-CN',
+                'test-agent'
+            );
+            const yamlText = await builder.build();
+            const config = yaml.load(yamlText);
+
+            const providerNames = Object.keys(config['proxy-providers'] || {});
+            expect(providerNames).toHaveLength(1);
+            expect(config['proxy-providers'][providerNames[0]].url)
+                .toBe('https://temporarily-unparsed.example.com/clash-sub');
+        });
+
+        it('should force HTTP subscriptions as Clash proxy-providers without fetching', async () => {
+            fetchSubscriptionWithFormat.mockResolvedValue({
+                content: mockSingboxJson,
+                format: 'singbox',
+                url: 'https://force-provider.example.com/sub'
+            });
+
+            const builder = new ClashConfigBuilder(
+                'https://force-provider.example.com/sub',
+                [],
+                [],
+                null,
+                'zh-CN',
+                'test-agent',
+                false,
+                false,
+                null,
+                null,
+                true,
+                true
+            );
+            const yamlText = await builder.build();
+            const config = yaml.load(yamlText);
+
+            expect(fetchSubscriptionWithFormat).not.toHaveBeenCalled();
+            const providerNames = Object.keys(config['proxy-providers'] || {});
+            expect(providerNames).toHaveLength(1);
+            expect(config['proxy-providers'][providerNames[0]].url)
+                .toBe('https://force-provider.example.com/sub');
+        });
     });
 
     describe('Sing-Box Builder', () => {
@@ -230,6 +305,22 @@ describe('Auto Proxy Providers Detection', () => {
             // Should have parsed outbounds instead
             const proxyOutbounds = config.outbounds.filter(o => o.server);
             expect(proxyOutbounds.length).toBeGreaterThan(0);
+        });
+
+        it('should not keep failed HTTP subscriptions as Sing-Box outbound_providers', async () => {
+            fetchSubscriptionWithFormat.mockResolvedValue(null);
+
+            const builder = new SingboxConfigBuilder(
+                'https://temporarily-unreachable.example.com/singbox-sub',
+                [],
+                [],
+                null,
+                'zh-CN',
+                'test-agent'
+            );
+            const config = await builder.build();
+
+            expect(config.outbound_providers).toBeUndefined();
         });
     });
 

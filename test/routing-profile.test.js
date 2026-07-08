@@ -87,6 +87,22 @@ describe('routing profiles', () => {
         expect(config.rules).toContain('RULE-SET,category-ai-!cn,💬 AI 静态');
     });
 
+    it('keeps JamesLab Clash output valid when provider filters match nothing', async () => {
+        const builder = new ClashConfigBuilder(
+            '',
+            'minimal',
+            mergeRoutingProfileCustomRules([], 'jameslab'),
+            null,
+            'zh-CN',
+            'clash-verge'
+        );
+        const config = yaml.load(await builder.build());
+
+        const stableGroup = config['proxy-groups'].find(group => group.name === '🧱 稳定下载');
+        expect(stableGroup.type).toBe('select');
+        expect(stableGroup.proxies).toEqual(['🚀 节点选择', 'DIRECT', 'REJECT']);
+    });
+
     it('adds JamesLab domain routes to Sing-box output', async () => {
         const builder = new SingboxConfigBuilder(
             directProxyInput,

@@ -88,9 +88,15 @@ export class BaseConfigBuilder {
 
                 // Check if it's an HTTP(S) URL - may use as provider if format matches
                 if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+                    if (this.shouldAlwaysUseHttpUrlAsProvider(trimmedUrl)) {
+                        this.providerUrls.push(trimmedUrl);
+                        continue;
+                    }
+
                     const { fetchSubscriptionWithFormat } = await import('../parsers/subscription/httpSubscriptionFetcher.js');
 
                     try {
+                        let handledHttpUrl = false;
                         const fetchResult = await fetchSubscriptionWithFormat(trimmedUrl, this.userAgent);
                         if (fetchResult) {
                             const { content, format, url: originalUrl, subscriptionUserinfo } = fetchResult;
@@ -102,6 +108,7 @@ export class BaseConfigBuilder {
                             // If format is compatible with target client, use as provider
                             if (this.isCompatibleProviderFormat(format)) {
                                 this.providerUrls.push(originalUrl);
+                                handledHttpUrl = true;
                                 continue;  // Skip parsing, will be used as provider
                             }
 
@@ -112,16 +119,21 @@ export class BaseConfigBuilder {
                                     this.applyConfigOverrides(result.config);
                                 }
                                 if (Array.isArray(result.proxies)) {
+                                    const beforeCount = parsedItems.length;
                                     result.proxies.forEach(proxy => {
                                         if (proxy && typeof proxy === 'object' && proxy.tag) {
                                             parsedItems.push(proxy);
                                         }
                                     });
+                                    handledHttpUrl = parsedItems.length > beforeCount;
                                 }
-                                continue;
+                                if (handledHttpUrl || !this.shouldUseHttpUrlAsProviderFallback(trimmedUrl)) {
+                                    continue;
+                                }
                             }
                             // Handle array of URIs or other formats
                             if (Array.isArray(result)) {
+                                const beforeCount = parsedItems.length;
                                 for (const item of result) {
                                     if (item && typeof item === 'object' && item.tag) {
                                         parsedItems.push(item);
@@ -132,10 +144,17 @@ export class BaseConfigBuilder {
                                         }
                                     }
                                 }
+                                handledHttpUrl = parsedItems.length > beforeCount;
                             }
+                        }
+                        if (!handledHttpUrl && this.shouldUseHttpUrlAsProviderFallback(trimmedUrl)) {
+                            this.providerUrls.push(trimmedUrl);
                         }
                     } catch (error) {
                         console.error('Error processing HTTP subscription:', error);
+                        if (this.shouldUseHttpUrlAsProviderFallback(trimmedUrl)) {
+                            this.providerUrls.push(trimmedUrl);
+                        }
                     }
                     continue;
                 }
@@ -184,6 +203,14 @@ export class BaseConfigBuilder {
      */
     isCompatibleProviderFormat(format) {
         return false;  // Default: no provider support
+    }
+
+    shouldUseHttpUrlAsProviderFallback(_url) {
+        return false;
+    }
+
+    shouldAlwaysUseHttpUrlAsProvider(_url) {
+        return false;
     }
 
     getAutoProviderDescriptors(reservedNames = []) {

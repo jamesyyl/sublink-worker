@@ -91,7 +91,7 @@ function sortProvidersByPriority(providers, priorityPatterns = []) {
 }
 
 export class ClashConfigBuilder extends BaseConfigBuilder {
-    constructor(inputString, selectedRules, customRules, baseConfig, lang, userAgent, groupByCountry = false, enableClashUI = false, externalController, externalUiDownloadUrl, includeAutoSelect = true) {
+    constructor(inputString, selectedRules, customRules, baseConfig, lang, userAgent, groupByCountry = false, enableClashUI = false, externalController, externalUiDownloadUrl, includeAutoSelect = true, forceProxyProviders = false) {
         if (!baseConfig) {
             baseConfig = CLASH_CONFIG;
         }
@@ -103,6 +103,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
         this.enableClashUI = enableClashUI;
         this.externalController = externalController;
         this.externalUiDownloadUrl = externalUiDownloadUrl;
+        this.forceProxyProviders = forceProxyProviders;
     }
 
     /**
@@ -112,6 +113,14 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
      */
     isCompatibleProviderFormat(format) {
         return format === 'clash';
+    }
+
+    shouldUseHttpUrlAsProviderFallback(_url) {
+        return true;
+    }
+
+    shouldAlwaysUseHttpUrlAsProvider(_url) {
+        return this.forceProxyProviders;
     }
 
     /**
@@ -562,6 +571,14 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                 group.use = providerNames;
             } else if (group.proxies.length === 0) {
                 group.proxies = deepCopy(uniqueNames(proxyList));
+                if (group.proxies.length === 0) {
+                    group.type = 'select';
+                    group.proxies = [
+                        this.t('outboundNames.Node Select'),
+                        'DIRECT',
+                        'REJECT'
+                    ];
+                }
             }
         } else {
             group.proxies = explicitProxies.length > 0
