@@ -87,6 +87,37 @@ proxies:
     expect(grp.proxies).toContain('node-from-provider');
   });
 
+  it('sanitizeClashProxyGroups should remove groups with empty names', () => {
+    const config = {
+      proxies: [],
+      'proxy-groups': [
+        {
+          name: '',
+          type: 'select',
+          proxies: ['DIRECT']
+        },
+        {
+          name: 'Valid Group',
+          type: 'select',
+          proxies: ['DIRECT']
+        }
+      ]
+    };
+
+    sanitizeClashProxyGroups(config);
+
+    expect(config['proxy-groups']).toHaveLength(1);
+    expect(config['proxy-groups'][0].name).toBe('Valid Group');
+  });
+
+  it('should not emit empty custom rule groups', async () => {
+    const builder = new ClashConfigBuilder('', 'minimal', [{ name: '' }], null, 'zh-CN', 'test-agent');
+    const yamlText = await builder.build();
+    const built = yaml.load(yamlText);
+
+    expect((built['proxy-groups'] || []).some(group => group?.name === '')).toBe(false);
+  });
+
   it('should default Private and Location:CN groups to DIRECT', async () => {
     const input = `
 ss://YWVzLTEyOC1nY206dGVzdA@example.com:443#HK-Node-1

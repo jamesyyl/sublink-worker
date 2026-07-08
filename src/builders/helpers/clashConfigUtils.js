@@ -58,8 +58,11 @@ export function emitClashRules(rules = [], translator) {
 const normalize = (s) => typeof s === 'string' ? s.trim() : s;
 
 export function sanitizeClashProxyGroups(config) {
-    const groups = config['proxy-groups'] || [];
+    const groups = (config['proxy-groups'] || []).filter(group =>
+        typeof group?.name === 'string' && group.name.trim().length > 0
+    );
     if (!Array.isArray(groups) || groups.length === 0) {
+        config['proxy-groups'] = [];
         return;
     }
     const proxyNames = new Set((config.proxies || []).map(p => normalize(p?.name)).filter(Boolean));
