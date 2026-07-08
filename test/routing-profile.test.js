@@ -73,10 +73,14 @@ describe('routing profiles', () => {
         expect(stableGroup.filter).toContain('MPLS');
 
         const aiGroup = config['proxy-groups'].find(group => group.name === '💬 AI 静态');
-        expect(aiGroup.type).toBe('select');
+        expect(aiGroup.type).toBe('url-test');
         expect(aiGroup.use).toEqual([equalProvider]);
         expect(aiGroup.filter).toContain('住宅');
-        expect(aiGroup.proxies).toEqual(['DIRECT', 'REJECT']);
+        expect(aiGroup.proxies).toEqual([]);
+
+        const metaGroup = config['proxy-groups'].find(group => group.name === '🧵 Meta/Threads');
+        expect(metaGroup.proxies[0]).toBe('🧱 稳定下载');
+        expect(metaGroup.proxies[1]).toBe('💬 AI 静态');
 
         const cfDailyGroup = config['proxy-groups'].find(group => group.name === '☁️ CF 优先日常');
         expect(cfDailyGroup.type).toBe('fallback');

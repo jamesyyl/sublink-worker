@@ -20,11 +20,14 @@ export const ROUTING_PROFILES = {
 				name: JAMESLAB_AI_STATIC,
 				site: ['category-ai-!cn'],
 				group: {
-					type: 'select',
+					type: 'url-test',
 					useProvider: 'filtered',
 					providerInclude: ['equal', 'equalvpn'],
 					filter: '(?i)(专属纯净静态住宅|static|residential|住宅)',
-					proxies: ['DIRECT', 'REJECT']
+					url: 'https://www.gstatic.com/generate_204',
+					interval: 300,
+					tolerance: 80,
+					lazy: false
 				}
 			},
 			{
@@ -72,8 +75,8 @@ export const ROUTING_PROFILES = {
 				group: {
 					type: 'select',
 					proxies: [
-						JAMESLAB_AI_STATIC,
 						JAMESLAB_STABLE_DOWNLOAD,
+						JAMESLAB_AI_STATIC,
 						JAMESLAB_CF_DAILY,
 						'🚀 节点选择',
 						'DIRECT',
