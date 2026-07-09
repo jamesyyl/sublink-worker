@@ -33,6 +33,34 @@ proxies:
     password: test456
 `;
 
+const mockMixedStashYaml = `
+proxies:
+  - name: Equal-WS
+    type: vless
+    server: equal.example.com
+    port: 443
+    uuid: 00000000-0000-0000-0000-000000000000
+    tls: true
+    network: ws
+    ws-opts:
+      path: /
+  - name: Forest-AnyTLS
+    type: anytls
+    server: forest.example.com
+    port: 54101
+    password: test123
+  - name: Reality-Vision
+    type: vless
+    server: reality.example.com
+    port: 443
+    uuid: 11111111-1111-1111-1111-111111111111
+    tls: true
+    flow: xtls-rprx-vision
+    reality-opts:
+      public-key: test-public-key
+      short-id: test-short-id
+`;
+
 // Mock Sing-Box subscription content
 const mockSingboxJson = JSON.stringify({
     outbounds: [
@@ -243,6 +271,101 @@ describe('Auto Proxy Providers Detection', () => {
             expect(nodeSelect.proxies).toContain('HK-Node');
             expect(nodeSelect.proxies).toContain('JP-Node');
             expect(nodeSelect.use || []).toEqual([]);
+        });
+
+        it('should filter high-risk proxy types when Stash compatibility mode is enabled', async () => {
+            fetchSubscriptionWithFormat.mockResolvedValue({
+                content: mockMixedStashYaml,
+                format: 'clash',
+                url: 'https://stash-compatible.example.com/mixed-sub'
+            });
+
+            const builder = new ClashConfigBuilder(
+                'https://stash-compatible.example.com/mixed-sub',
+                [],
+                [],
+                null,
+                'zh-CN',
+                'Stash/2.6.0',
+                false,
+                false,
+                null,
+                null,
+                true,
+                false,
+                true,
+                true
+            );
+            const yamlText = await builder.build();
+            const config = yaml.load(yamlText);
+
+            expect(config['proxy-providers']).toBeUndefined();
+            expect(config.proxies.map(proxy => proxy.name)).toEqual(['Equal-WS']);
+            expect(config.proxies.some(proxy => proxy.type === 'anytls')).toBe(false);
+            expect(config.proxies.some(proxy => proxy.flow === 'xtls-rprx-vision')).toBe(false);
+            const nodeSelect = config['proxy-groups'].find(g => g.name === '🚀 节点选择');
+            expect(nodeSelect.proxies).toContain('Equal-WS');
+            expect(nodeSelect.proxies).not.toContain('Forest-AnyTLS');
+            expect(nodeSelect.proxies).not.toContain('Reality-Vision');
+        });
+
+        it('should fall back to non-AnyTLS proxies when Stash compatibility filtering would leave no proxies', async () => {
+            fetchSubscriptionWithFormat.mockResolvedValue({
+                content: `
+proxies:
+  - name: Reality-Vision
+    type: vless
+    server: reality.example.com
+    port: 443
+    uuid: 11111111-1111-1111-1111-111111111111
+    tls: true
+    flow: xtls-rprx-vision
+    reality-opts:
+      public-key: test-public-key
+      short-id: test-short-id
+  - name: Forest-AnyTLS
+    type: anytls
+    server: forest.example.com
+    port: 54101
+    password: test123
+proxy-groups:
+  - name: 自动选择
+    type: url-test
+    proxies:
+      - Forest-AnyTLS
+    url: https://www.gstatic.com/generate_204
+    interval: 300
+`,
+                format: 'clash',
+                url: 'https://stash-compatible.example.com/risky-sub'
+            });
+
+            const builder = new ClashConfigBuilder(
+                'https://stash-compatible.example.com/risky-sub',
+                [],
+                [],
+                null,
+                'zh-CN',
+                'Stash/2.6.0',
+                false,
+                false,
+                null,
+                null,
+                true,
+                false,
+                true,
+                true
+            );
+            const yamlText = await builder.build();
+            const config = yaml.load(yamlText);
+
+            expect(config.proxies.map(proxy => proxy.name)).toEqual(['Reality-Vision']);
+            expect(config.proxies.some(proxy => proxy.type === 'anytls')).toBe(false);
+            const upstreamAuto = config['proxy-groups'].find(g => g.name === '自动选择');
+            expect(upstreamAuto.proxies).toEqual(['Reality-Vision']);
+            const nodeSelect = config['proxy-groups'].find(g => g.name === '🚀 节点选择');
+            expect(nodeSelect.proxies).toContain('Reality-Vision');
+            expect(nodeSelect.proxies).not.toContain('Forest-AnyTLS');
         });
     });
 

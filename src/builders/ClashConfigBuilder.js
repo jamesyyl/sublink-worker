@@ -91,7 +91,7 @@ function sortProvidersByPriority(providers, priorityPatterns = []) {
 }
 
 export class ClashConfigBuilder extends BaseConfigBuilder {
-    constructor(inputString, selectedRules, customRules, baseConfig, lang, userAgent, groupByCountry = false, enableClashUI = false, externalController, externalUiDownloadUrl, includeAutoSelect = true, forceProxyProviders = false, inlineProxyProviders = false) {
+    constructor(inputString, selectedRules, customRules, baseConfig, lang, userAgent, groupByCountry = false, enableClashUI = false, externalController, externalUiDownloadUrl, includeAutoSelect = true, forceProxyProviders = false, inlineProxyProviders = false, stashCompat = false) {
         if (!baseConfig) {
             baseConfig = CLASH_CONFIG;
         }
@@ -105,6 +105,8 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
         this.externalUiDownloadUrl = externalUiDownloadUrl;
         this.forceProxyProviders = forceProxyProviders;
         this.inlineProxyProviders = inlineProxyProviders;
+        this.stashCompat = stashCompat;
+        this.stashCompatSkippedProxies = [];
     }
 
     /**
@@ -391,7 +393,26 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
         }
     }
 
+    isStashCompatibleProxy(proxy) {
+        if (!this.stashCompat) return true;
+        if (!proxy || typeof proxy !== 'object') return false;
+        if (proxy.type === 'anytls') return false;
+        if (proxy.type === 'vless') {
+            if (proxy.flow === 'xtls-rprx-vision') return false;
+            if (proxy['reality-opts']) return false;
+        }
+        return true;
+    }
+
     addProxyToConfig(proxy) {
+        if (!this.isStashCompatibleProxy(proxy)) {
+            this.stashCompatSkippedProxies.push(proxy);
+            return;
+        }
+        this.addProxyDirectly(proxy);
+    }
+
+    addProxyDirectly(proxy) {
         this.config.proxies = this.config.proxies || [];
         addProxyWithDedup(this.config.proxies, proxy, {
             getName: (item) => item?.name,
@@ -402,6 +423,40 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                 const { name: _name, ...restOfProxy } = b;
                 const { name: __name, ...restOfExisting } = a;
                 return JSON.stringify(restOfProxy) === JSON.stringify(restOfExisting);
+            }
+        });
+    }
+
+    restoreStashCompatFallbackProxiesIfNeeded() {
+        if (!this.stashCompat) return;
+        if ((this.config.proxies || []).length > 0) return;
+        if (this.stashCompatSkippedProxies.length === 0) return;
+
+        const nonAnyTlsProxies = this.stashCompatSkippedProxies.filter(proxy => proxy?.type !== 'anytls');
+        const fallbackProxies = nonAnyTlsProxies.length > 0
+            ? nonAnyTlsProxies
+            : this.stashCompatSkippedProxies;
+        fallbackProxies.forEach(proxy => this.addProxyDirectly(proxy));
+    }
+
+    addSelectors() {
+        this.restoreStashCompatFallbackProxiesIfNeeded();
+        super.addSelectors();
+    }
+
+    repairStashCompatEmptyProxyGroups() {
+        if (!this.stashCompat) return;
+        const proxyList = this.getProxyList();
+        if (proxyList.length === 0) return;
+
+        (this.config['proxy-groups'] || []).forEach(group => {
+            const requiresMembers = group?.type === 'url-test' || group?.type === 'fallback';
+            if (!requiresMembers) return;
+
+            const hasProxyRefs = Array.isArray(group.proxies) && group.proxies.length > 0;
+            const hasProviderRefs = Array.isArray(group.use) && group.use.length > 0;
+            if (!hasProxyRefs && !hasProviderRefs) {
+                group.proxies = [...proxyList];
             }
         });
     }
@@ -851,6 +906,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
         }
 
         sanitizeClashProxyGroups(this.config);
+        this.repairStashCompatEmptyProxyGroups();
         this.reorderProxyGroups();
         this.validateProxyGroups();
 

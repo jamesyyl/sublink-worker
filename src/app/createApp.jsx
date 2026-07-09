@@ -139,6 +139,7 @@ export function createApp(bindings = {}) {
             const forceProxyProviders = parseBooleanFlag(c.req.query('forceProxyProviders') || c.req.query('force_proxy_providers'));
             const requestUserAgent = getRequestHeader(c.req, 'User-Agent');
             const inlineProxyProviders = parseBooleanFlag(c.req.query('inlineProxies') || c.req.query('inline_proxies') || c.req.query('inlineProxyProviders') || c.req.query('inline_proxy_providers')) || isStashUserAgent(requestUserAgent);
+            const stashCompat = parseBooleanFlag(c.req.query('stashCompat') || c.req.query('stash_compat')) || isStashUserAgent(requestUserAgent);
             const enableClashUI = parseBooleanFlag(c.req.query('enable_clash_ui'));
             const externalController = c.req.query('external_controller');
             const externalUiDownloadUrl = c.req.query('external_ui_download_url');
@@ -164,7 +165,8 @@ export function createApp(bindings = {}) {
                 externalUiDownloadUrl,
                 includeAutoSelect,
                 forceProxyProviders,
-                inlineProxyProviders
+                inlineProxyProviders,
+                stashCompat
             );
             await builder.build();
             const userinfo = builder.getSubscriptionUserinfo();

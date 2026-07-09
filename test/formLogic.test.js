@@ -79,6 +79,7 @@ describe('formLogic toString fix', () => {
       expect(stashUrl.pathname).toBe('/clash');
       expect(stashUrl.searchParams.get('routingProfile')).toBe('jameslab');
       expect(stashUrl.searchParams.get('inlineProxies')).toBe('true');
+      expect(stashUrl.searchParams.get('stashCompat')).toBe('true');
       expect(stashUrl.searchParams.get('ua')).toBe('Stash/2.6.0');
       expect(stashUrl.searchParams.get('forceProxyProviders')).toBeNull();
       expect(singboxUrl.searchParams.get('forceProxyProviders')).toBeNull();

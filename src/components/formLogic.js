@@ -406,6 +406,7 @@ export const formLogicFn = (t) => {
                     }
                     const stashParams = new URLSearchParams(queryString);
                     stashParams.append('inlineProxies', 'true');
+                    stashParams.append('stashCompat', 'true');
                     if (!this.customUA) {
                         stashParams.set('ua', 'Stash/2.6.0');
                     }
