@@ -112,6 +112,10 @@ export const ROUTING_PROFILES = {
 						'0618edt',
 						'edgetunnel'
 					],
+					proxyPriority: [
+						'CF官方优选',
+						'CF官方優選'
+					],
 					url: 'https://www.gstatic.com/generate_204',
 					interval: 300,
 					lazy: false

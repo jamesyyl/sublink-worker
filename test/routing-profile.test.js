@@ -107,6 +107,87 @@ describe('routing profiles', () => {
         expect(stableGroup.proxies).toEqual(['🚀 节点选择', 'DIRECT', 'REJECT']);
     });
 
+    it('builds clean JamesLab Stash inline groups from proxy name filters', async () => {
+        const input = `
+proxies:
+  - name: 专属纯净静态住宅节点
+    type: vless
+    server: static.example.com
+    port: 443
+    uuid: 00000000-0000-0000-0000-000000000000
+    tls: true
+    network: ws
+  - name: 🇭🇰 [IPLC-香港1] ✨ 2x
+    type: ss
+    server: hk.example.com
+    port: 443
+    cipher: aes-128-gcm
+    password: test
+  - name: CF官方优选1
+    type: vless
+    server: cf.example.com
+    port: 443
+    uuid: 11111111-1111-1111-1111-111111111111
+    tls: true
+    network: ws
+  - name: 普通节点
+    type: ss
+    server: normal.example.com
+    port: 443
+    cipher: aes-128-gcm
+    password: test
+proxy-groups:
+  - name: AI服务
+    type: select
+    proxies: []
+  - name: 🇭🇰 香港节点
+    type: url-test
+    proxies:
+      - 🇭🇰 [IPLC-香港1] ✨ 2x
+    url: https://www.gstatic.com/generate_204
+    interval: 300
+`;
+
+        const builder = new ClashConfigBuilder(
+            input,
+            'minimal',
+            mergeRoutingProfileCustomRules([], 'jameslab'),
+            null,
+            'zh-CN',
+            'Stash/2.6.0',
+            false,
+            false,
+            null,
+            null,
+            true,
+            false,
+            true,
+            true
+        );
+        const config = yaml.load(await builder.build());
+
+        expect(config['proxy-groups'].some(group => group.name === 'AI服务')).toBe(false);
+        expect(config['proxy-groups'].some(group => group.name === '🇭🇰 香港节点')).toBe(false);
+
+        const aiGroup = config['proxy-groups'].find(group => group.name === '💬 AI 静态');
+        expect(aiGroup.type).toBe('url-test');
+        expect(aiGroup.proxies).toEqual(['专属纯净静态住宅节点']);
+
+        const stableGroup = config['proxy-groups'].find(group => group.name === '🧱 稳定下载');
+        expect(stableGroup.proxies).toContain('专属纯净静态住宅节点');
+        expect(stableGroup.proxies).toContain('🇭🇰 [IPLC-香港1] ✨ 2x');
+        expect(stableGroup.proxies).not.toContain('CF官方优选1');
+        expect(stableGroup.proxies).not.toContain('普通节点');
+
+        const cfDailyGroup = config['proxy-groups'].find(group => group.name === '☁️ CF 优先日常');
+        expect(cfDailyGroup.proxies[0]).toBe('CF官方优选1');
+        expect((config['proxy-groups'] || []).filter(group =>
+            (group.type === 'select' || group.type === 'url-test' || group.type === 'fallback') &&
+            (!Array.isArray(group.proxies) || group.proxies.length === 0) &&
+            (!Array.isArray(group.use) || group.use.length === 0)
+        )).toEqual([]);
+    });
+
     it('adds JamesLab domain routes to Sing-box output', async () => {
         const builder = new SingboxConfigBuilder(
             directProxyInput,

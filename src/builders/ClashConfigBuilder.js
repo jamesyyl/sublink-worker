@@ -77,6 +77,37 @@ function providerMatchesPattern(provider, pattern) {
     return regex.test(`${provider?.name || ''}\n${provider?.url || ''}`);
 }
 
+function compileProxyNameFilter(pattern) {
+    if (typeof pattern !== 'string' || !pattern.trim()) return null;
+    let trimmed = pattern.trim();
+    let flags = 'i';
+    if (trimmed.startsWith('(?i)')) {
+        trimmed = trimmed.slice(4);
+        flags = 'i';
+    }
+    const regexMatch = trimmed.match(/^\/(.+)\/([a-z]*)$/i);
+    if (regexMatch) {
+        try {
+            return new RegExp(regexMatch[1], regexMatch[2]);
+        } catch (_) {
+            return null;
+        }
+    }
+    try {
+        return new RegExp(trimmed, flags);
+    } catch (_) {
+        return compilePattern(trimmed);
+    }
+}
+
+function proxyNameMatchesAny(name, patterns = []) {
+    if (typeof name !== 'string') return false;
+    return patterns
+        .map(compileProxyNameFilter)
+        .filter(Boolean)
+        .some(regex => regex.test(name));
+}
+
 function sortProvidersByPriority(providers, priorityPatterns = []) {
     const compiled = toStringList(priorityPatterns).map(compilePattern).filter(Boolean);
     if (compiled.length === 0) return providers;
@@ -207,6 +238,32 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
         });
 
         return sortProvidersByPriority(filtered, priorityPatterns).map(provider => provider.name);
+    }
+
+    getProxyNamesForGroup(group = {}, proxyList = []) {
+        const names = uniqueNames(proxyList);
+        const filterPatterns = toStringList(group.filter);
+        const includePatterns = toStringList(group.proxyInclude || group.proxy?.include);
+        const excludePatterns = toStringList(group.proxyExclude || group.proxy?.exclude);
+        const priorityPatterns = toStringList(group.proxyPriority || group.proxy?.priority || group.providerPriority || group.provider?.priority);
+        const hasIncludeConstraints = filterPatterns.length > 0 || includePatterns.length > 0;
+
+        const filtered = names.filter(name => {
+            const includedByFilter = filterPatterns.length === 0 || proxyNameMatchesAny(name, filterPatterns);
+            const includedByInclude = includePatterns.length === 0 || proxyNameMatchesAny(name, includePatterns);
+            const excluded = excludePatterns.some(pattern => proxyNameMatchesAny(name, [pattern]));
+            return includedByFilter && includedByInclude && !excluded;
+        });
+
+        const sorted = sortProvidersByPriority(
+            filtered.map(name => ({ name, url: '' })),
+            priorityPatterns
+        ).map(provider => provider.name);
+
+        return {
+            proxies: sorted,
+            constrained: hasIncludeConstraints || excludePatterns.length > 0
+        };
     }
 
     getProxies() {
@@ -626,13 +683,18 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
         const providerNames = Array.isArray(groupOptions.use)
             ? groupOptions.use.filter(name => typeof name === 'string' && name.trim())
             : (shouldAttachProviders ? this.getProviderNamesForGroup(groupOptions) : []);
+        const inlineGroup = this.inlineProxyProviders
+            ? this.getProxyNamesForGroup(groupOptions, proxyList)
+            : { proxies: [], constrained: false };
 
         if (group.type === 'url-test' || group.type === 'fallback') {
             group.proxies = explicitProxies;
             if (providerNames.length > 0) {
                 group.use = providerNames;
             } else if (group.proxies.length === 0) {
-                group.proxies = deepCopy(uniqueNames(proxyList));
+                group.proxies = inlineGroup.proxies.length > 0 || inlineGroup.constrained
+                    ? inlineGroup.proxies
+                    : deepCopy(uniqueNames(proxyList));
                 if (group.proxies.length === 0) {
                     group.type = 'select';
                     group.proxies = [
@@ -760,6 +822,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
      */
     mergeUserProxyGroups(userGroups) {
         if (!Array.isArray(userGroups)) return;
+        if (this.inlineProxyProviders && this.stashCompat) return;
 
         const proxyList = this.getProxyList();
         const allProviderNames = new Set(this.getAllProviderNames());

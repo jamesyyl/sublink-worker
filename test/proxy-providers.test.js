@@ -361,8 +361,7 @@ proxy-groups:
 
             expect(config.proxies.map(proxy => proxy.name)).toEqual(['Reality-Vision']);
             expect(config.proxies.some(proxy => proxy.type === 'anytls')).toBe(false);
-            const upstreamAuto = config['proxy-groups'].find(g => g.name === '自动选择');
-            expect(upstreamAuto.proxies).toEqual(['Reality-Vision']);
+            expect(config['proxy-groups'].some(g => g.name === '自动选择')).toBe(false);
             const nodeSelect = config['proxy-groups'].find(g => g.name === '🚀 节点选择');
             expect(nodeSelect.proxies).toContain('Reality-Vision');
             expect(nodeSelect.proxies).not.toContain('Forest-AnyTLS');
