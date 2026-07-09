@@ -57,8 +57,19 @@ export function emitClashRules(rules = [], translator) {
 
 const normalize = (s) => typeof s === 'string' ? s.trim() : s;
 
+function normalizeNamedItems(items = []) {
+    if (!Array.isArray(items)) return [];
+    return items.map(item => {
+        if (!item || typeof item !== 'object') return item;
+        if (typeof item.name !== 'string') return item;
+        return { ...item, name: item.name.trim() };
+    });
+}
+
 export function sanitizeClashProxyGroups(config) {
-    const groups = (config['proxy-groups'] || []).filter(group =>
+    config.proxies = normalizeNamedItems(config.proxies);
+
+    const groups = normalizeNamedItems(config['proxy-groups']).filter(group =>
         typeof group?.name === 'string' && group.name.trim().length > 0
     );
     if (!Array.isArray(groups) || groups.length === 0) {

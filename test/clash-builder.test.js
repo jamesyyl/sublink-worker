@@ -110,6 +110,36 @@ proxies:
     expect(config['proxy-groups'][0].name).toBe('Valid Group');
   });
 
+  it('sanitizeClashProxyGroups should keep proxy names and group references consistent after trimming', () => {
+    const config = {
+      proxies: [
+        {
+          name: 'HK Dynamic Home IP ',
+          type: 'ss',
+          server: 'example.com',
+          port: 443,
+          cipher: 'aes-128-gcm',
+          password: 'test'
+        }
+      ],
+      'proxy-groups': [
+        {
+          name: 'Auto ',
+          type: 'url-test',
+          proxies: ['HK Dynamic Home IP'],
+          url: 'https://www.gstatic.com/generate_204',
+          interval: 300
+        }
+      ]
+    };
+
+    sanitizeClashProxyGroups(config);
+
+    expect(config.proxies[0].name).toBe('HK Dynamic Home IP');
+    expect(config['proxy-groups'][0].name).toBe('Auto');
+    expect(config['proxy-groups'][0].proxies).toEqual(['HK Dynamic Home IP']);
+  });
+
   it('should not emit empty custom rule groups', async () => {
     const builder = new ClashConfigBuilder('', 'minimal', [{ name: '' }], null, 'zh-CN', 'test-agent');
     const yamlText = await builder.build();
