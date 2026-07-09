@@ -1,4 +1,4 @@
-import { ProxyParser } from '../parsers/index.js';
+﻿import { ProxyParser } from '../parsers/index.js';
 import { createStableProviderName, deepCopy, tryDecodeSubscriptionLines, decodeBase64 } from '../utils.js';
 import { createTranslator } from '../i18n/index.js';
 import { generateRules, getOutbounds, PREDEFINED_RULE_SETS } from '../config/index.js';
@@ -400,8 +400,8 @@ export class BaseConfigBuilder {
         const outbounds = this.getOutboundsList();
         const proxyList = this.getProxyList();
 
-        this.addAutoSelectGroup(proxyList);
         this.addNodeSelectGroup(proxyList);
+        this.addAutoSelectGroup(proxyList);
         if (this.groupByCountry) {
             this.addCountryGroups();
         }

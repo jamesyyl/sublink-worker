@@ -440,7 +440,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
             group.use = providerNames;
         }
 
-        this.config['proxy-groups'].push(group);
+        this.config['proxy-groups'].unshift(group);
     }
 
     addNodeSelectGroup(proxyList) {
@@ -801,6 +801,34 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
         return generateRules(this.selectedRules, this.customRules);
     }
 
+    reorderProxyGroups() {
+        const groups = this.config['proxy-groups'];
+        if (!Array.isArray(groups) || groups.length === 0) return;
+        const proxyNames = new Set((this.config.proxies || []).map(p => p?.name).filter(Boolean));
+        const groupNames = new Set(groups.map(g => g?.name).filter(Boolean));
+        const specialNames = new Set(['DIRECT', 'REJECT', 'PASS']);
+        const referencedGroupNames = new Set();
+        groups.forEach(g => {
+            if (Array.isArray(g.proxies)) {
+                g.proxies.forEach(p => {
+                    if (!proxyNames.has(p) && !specialNames.has(p) && groupNames.has(p)) {
+                        referencedGroupNames.add(p);
+                    }
+                });
+            }
+        });
+        const referenced = [];
+        const others = [];
+        groups.forEach(g => {
+            if (referencedGroupNames.has(g?.name)) {
+                referenced.push(g);
+            } else {
+                others.push(g);
+            }
+        });
+        this.config['proxy-groups'] = [...referenced, ...others];
+    }
+
     formatConfig() {
         const rules = this.generateRules();
         const useMrs = supportsMrsFormat(this.userAgent);
@@ -820,6 +848,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
         }
 
         sanitizeClashProxyGroups(this.config);
+        this.reorderProxyGroups();
         this.validateProxyGroups();
 
         this.config.rules = [
