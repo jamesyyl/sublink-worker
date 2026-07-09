@@ -528,31 +528,34 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
     addCustomRuleGroups(proxyList) {
         if (Array.isArray(this.customRules)) {
             this.customRules.forEach(rule => {
-                const name = this.t(`outboundNames.${rule.name}`);
-                if (!this.hasProxyGroup(name)) {
-                    if (rule?.group && typeof rule.group === 'object') {
+                // Rules with explicit group definitions (e.g. routing profiles)
+                // use the rule name directly since it is already a display name.
+                if (rule?.group && typeof rule.group === 'object') {
+                    const name = rule.name;
+                    if (!this.hasProxyGroup(name)) {
                         this.config['proxy-groups'].push(this.createCustomPolicyGroup(name, rule.group, proxyList));
-                        return;
                     }
-
-                    const proxies = buildCustomRuleMembers({
-                        proxyList,
-                        translator: this.t,
-                        manualGroupName: this.manualGroupName,
-                        includeAutoSelect: this.shouldIncludeAutoSelectGroup(proxyList)
-                    });
-                    const group = {
-                        type: "select",
-                        name,
-                        proxies
-                    };
-                    // Add 'use' field if we have proxy-providers
-                    const providerNames = this.getAllProviderNames();
-                    if (providerNames.length > 0) {
-                        group.use = providerNames;
-                    }
-                    this.config['proxy-groups'].push(group);
+                    return;
                 }
+                const name = this.t(`outboundNames.${rule.name}`);
+                if (this.hasProxyGroup(name)) return;
+
+                const proxies = buildCustomRuleMembers({
+                    proxyList,
+                    translator: this.t,
+                    manualGroupName: this.manualGroupName,
+                    includeAutoSelect: this.shouldIncludeAutoSelectGroup(proxyList)
+                });
+                const group = {
+                    type: "select",
+                    name,
+                    proxies
+                };
+                const providerNames = this.getAllProviderNames();
+                if (providerNames.length > 0) {
+                    group.use = providerNames;
+                }
+                this.config['proxy-groups'].push(group);
             });
         }
     }
